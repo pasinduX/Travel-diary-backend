@@ -30,11 +30,14 @@ func New(cfg config.Config) (*fiber.App, error) {
 		return nil, err
 	}
 
-	app.Use(fibercors.New(fibercors.Config{
-		AllowOrigins: cfg.CORSAllowedOrigins,
+	corsCfg := fibercors.Config{
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-	}))
+	}
+	if cfg.CORSAllowedOrigins != "" {
+		corsCfg.AllowOrigins = cfg.CORSAllowedOrigins
+	}
+	app.Use(fibercors.New(corsCfg))
 	app.Use(middleware.RequestLogger())
 	app.Use(middleware.Recover())
 

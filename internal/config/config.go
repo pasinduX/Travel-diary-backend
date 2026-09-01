@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -42,7 +43,7 @@ func Load() Config {
 		AWSSecretAccessKey:    getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		AWSBucket:             getEnv("AWS_S3_BUCKET", ""),
 		JWTSecret:             getEnv("JWT_SECRET", "change-me"),
-		CORSAllowedOrigins:    getEnv("CORS_ALLOWED_ORIGINS", ""),
+		CORSAllowedOrigins:    sanitizeOrigins(getEnv("CORS_ALLOWED_ORIGINS", "")),
 		GoogleClientID:        getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:    getEnv("GOOGLE_CLIENT_SECRET", ""),
 		GoogleAuthStateSecret: getEnv("GOOGLE_AUTH_STATE_SECRET", "state-secret"),
@@ -56,6 +57,8 @@ func normalizeDatabaseURL(raw string) string {
 	raw = strings.Trim(raw, `"'`)
 	raw = strings.TrimPrefix(raw, "export DATABASE_URL=")
 	raw = strings.TrimPrefix(raw, "DATABASE_URL=")
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
 	return raw
 }
 
@@ -78,13 +81,40 @@ func loadDotEnv(path string) {
 			continue
 		}
 		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
+		value = sanitizeEnvValue(strings.TrimSpace(value))
 		if key == "" || value == "" {
 			continue
 		}
 		_ = os.Setenv(key, value)
 	}
+}
+
+var markdownLinkPattern = regexp.MustCompile(`^\[([^\]]+)\]\([^)]+\)$`)
+
+func sanitizeEnvValue(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, `"'`)
+	value = strings.TrimPrefix(value, "[")
+	value = strings.TrimSuffix(value, "]")
+	if match := markdownLinkPattern.FindStringSubmatch(value); len(match) == 2 {
+		return match[1]
+	}
+	return value
+}
+
+func sanitizeOrigins(raw string) string {
+	parts := strings.Split(raw, ",")
+	clean := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = sanitizeEnvValue(part)
+		if part == "" {
+			continue
+		}
+		if u, err := url.Parse(part); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" {
+			clean = append(clean, part)
+		}
+	}
+	return strings.Join(clean, ",")
 }
 
 func (c Config) ServerAddress() string {
