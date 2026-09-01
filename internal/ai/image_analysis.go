@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 	"travel-diary-backend/internal/models"
 )
@@ -65,7 +67,11 @@ func (o *OpenAIImageAnalyzer) Analyze(ctx context.Context, imageURLValue, model 
 	data, _ := json.Marshal(reqBody)
 	var last error
 	for attempt := 0; attempt < 3; attempt++ {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(data))
+		if err != nil {
+			last = err
+			break
+		}
 		req.Header.Set("Authorization", "Bearer "+o.key)
 		req.Header.Set("Content-Type", "application/json")
 		res, err := o.client.Do(req)
@@ -79,13 +85,29 @@ func (o *OpenAIImageAnalyzer) Analyze(ctx context.Context, imageURLValue, model 
 					return a, nil
 				}
 			}
+			if err == nil {
+				err = fmt.Errorf("openai returned no analysis choices")
+			}
+			last = fmt.Errorf("could not parse OpenAI analysis: %w", err)
 		} else if res != nil {
-			last = fmt.Errorf("openai request failed with status %d", res.StatusCode)
+			body, readErr := io.ReadAll(io.LimitReader(res.Body, 2048))
 			res.Body.Close()
+			if readErr != nil {
+				last = fmt.Errorf("openai request failed with status %d (could not read response)", res.StatusCode)
+			} else {
+				message := strings.TrimSpace(string(body))
+				last = fmt.Errorf("openai request failed with status %d: %s", res.StatusCode, message)
+			}
 		} else {
 			last = err
 		}
-		time.Sleep(time.Duration(1<<attempt) * time.Second)
+		if attempt < 2 {
+			select {
+			case <-time.After(time.Duration(1<<attempt) * time.Second):
+			case <-ctx.Done():
+				return models.TripImageAnalysis{}, ctx.Err()
+			}
+		}
 	}
 	return models.TripImageAnalysis{}, last
 }

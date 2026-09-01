@@ -21,8 +21,34 @@ func NewTripImageAnalysisDAO(db *mongo.Database) TripImageAnalysisDAO {
 }
 func (d TripImageAnalysisDAO) Upsert(ctx context.Context, a models.TripImageAnalysis) error {
 	now := time.Now().UTC()
-	a.UpdatedAt = now
-	_, err := d.col.UpdateOne(ctx, bson.M{"imageId": a.ImageID}, bson.M{"$set": a, "$setOnInsert": bson.M{"createdAt": now}}, options.Update().SetUpsert(true))
+	_, err := d.col.UpdateOne(ctx, bson.M{"imageId": a.ImageID}, bson.M{
+		"$set": bson.M{
+			"imageId":         a.ImageID,
+			"tripId":          a.TripID,
+			"userId":          a.UserID,
+			"takenAt":         a.TakenAt,
+			"latitude":        a.Latitude,
+			"longitude":       a.Longitude,
+			"orientation":     a.Orientation,
+			"aspectRatio":     a.AspectRatio,
+			"caption":         a.Caption,
+			"scene":           a.Scene,
+			"visual":          a.Visual,
+			"content":         a.Content,
+			"story":           a.Story,
+			"quality":         a.Quality,
+			"composition":     a.Composition,
+			"locationGuess":   a.LocationGuess,
+			"model":           a.Model,
+			"analysisVersion": a.AnalysisVersion,
+			"promptVersion":   a.PromptVersion,
+			"updatedAt":       now,
+		},
+		"$setOnInsert": bson.M{
+			"_id":       a.ID,
+			"createdAt": now,
+		},
+	}, options.Update().SetUpsert(true))
 	return err
 }
 

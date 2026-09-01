@@ -19,7 +19,17 @@ func TripAnalysisStatusHandler(cfg config.Config, db *mongo.Database) fiber.Hand
 		}
 		analyzed := counts["ANALYZED"]
 		failed := counts["FAILED"]
-		return c.JSON(fiber.Map{"tripId": c.Params("id"), "total": total, "uploaded": counts["UPLOADED"], "queued": counts["QUEUED"], "processing": counts["PROCESSING"], "analyzed": analyzed, "failed": failed, "percentage": func() int {
+		images, err := dao.NewTripImageDAO(db).ListByTripID(c.Context(), userID, c.Params("id"))
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "could not load analysis failures"})
+		}
+		failures := make([]fiber.Map, 0)
+		for _, image := range images {
+			if image.AnalysisStatus == "FAILED" {
+				failures = append(failures, fiber.Map{"imageId": image.ID, "fileName": image.FileName, "error": image.AnalysisError})
+			}
+		}
+		return c.JSON(fiber.Map{"tripId": c.Params("id"), "total": total, "uploaded": counts["UPLOADED"], "queued": counts["QUEUED"], "processing": counts["PROCESSING"], "analyzed": analyzed, "failed": failed, "failures": failures, "percentage": func() int {
 			if total == 0 {
 				return 0
 			}

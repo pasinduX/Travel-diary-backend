@@ -51,7 +51,7 @@ func (q *ImageAnalysisQueue) worker() {
 		started := time.Now()
 		result, err := q.analyzer.Analyze(ctx, job.imageURL, q.model)
 		if err != nil {
-			_ = q.images.SetAnalysisState(ctx, job.imageID, "FAILED", "image analysis unavailable", nil)
+			_ = q.images.SetAnalysisState(ctx, job.imageID, "FAILED", err.Error(), nil)
 			log.Printf("image_analysis_failed image_id=%s duration_ms=%d error=%v", job.imageID, time.Since(started).Milliseconds(), err)
 			continue
 		}
@@ -63,7 +63,8 @@ func (q *ImageAnalysisQueue) worker() {
 		result.AnalysisVersion = CurrentAnalysisVersion
 		result.PromptVersion = "v1"
 		if err := q.analyses.Upsert(ctx, result); err != nil {
-			_ = q.images.SetAnalysisState(ctx, job.imageID, "FAILED", "could not save image analysis", nil)
+			_ = q.images.SetAnalysisState(ctx, job.imageID, "FAILED", "could not save image analysis: "+err.Error(), nil)
+			log.Printf("image_analysis_save_failed image_id=%s duration_ms=%d error=%v", job.imageID, time.Since(started).Milliseconds(), err)
 			continue
 		}
 		now := time.Now().UTC()
