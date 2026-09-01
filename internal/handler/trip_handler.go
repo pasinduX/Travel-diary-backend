@@ -87,6 +87,13 @@ func TripDeleteHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 		}
+		imageSvc, err := newTripImageService(cfg, db, nil)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not initialize image storage"})
+		}
+		if err := imageSvc.DeleteByTripID(c.Context(), userID, c.Params("id")); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not delete trip images"})
+		}
 		if err := svc.Delete(c.Context(), userID, c.Params("id")); err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 		}

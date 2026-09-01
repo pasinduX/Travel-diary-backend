@@ -15,6 +15,48 @@ type TripImageDAO struct {
 	col *mongo.Collection
 }
 
+func (d TripImageDAO) FindByID(ctx context.Context, userID, imageID string) (models.TripImage, error) {
+	var image models.TripImage
+	if err := d.col.FindOne(ctx, bson.M{"_id": imageID, "userId": userID}).Decode(&image); err != nil {
+		return models.TripImage{}, mongo.ErrNoDocuments
+	}
+	return image, nil
+}
+
+func (d TripImageDAO) SetAnalysisState(ctx context.Context, imageID, status, analysisError string, analyzedAt *time.Time) error {
+	update := bson.M{"analysisStatus": status, "analysisError": analysisError, "updatedAt": time.Now().UTC()}
+	if analyzedAt != nil {
+		update["analyzedAt"] = analyzedAt
+	}
+	_, err := d.col.UpdateOne(ctx, bson.M{"_id": imageID}, bson.M{"$set": update})
+	return err
+}
+
+func (d TripImageDAO) CountByStatus(ctx context.Context, userID, tripID string) (map[string]int64, int64, error) {
+	cur, err := d.col.Aggregate(ctx, mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"userId": userID, "tripId": tripID}}},
+		{{Key: "$group", Value: bson.M{"_id": "$analysisStatus", "count": bson.M{"$sum": 1}}}},
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cur.Close(ctx)
+	counts := make(map[string]int64)
+	var total int64
+	for cur.Next(ctx) {
+		var row struct {
+			ID    string `bson:"_id"`
+			Count int64  `bson:"count"`
+		}
+		if err := cur.Decode(&row); err != nil {
+			return nil, 0, err
+		}
+		counts[row.ID] = row.Count
+		total += row.Count
+	}
+	return counts, total, cur.Err()
+}
+
 func NewTripImageDAO(db *mongo.Database) TripImageDAO {
 	col := db.Collection("trip_images")
 	_, _ = col.Indexes().CreateMany(context.Background(), []mongo.IndexModel{
@@ -51,4 +93,9 @@ func (d TripImageDAO) ListByTripID(ctx context.Context, userID, tripID string) (
 		images = append(images, img)
 	}
 	return images, cur.Err()
+}
+
+func (d TripImageDAO) DeleteByTripID(ctx context.Context, userID, tripID string) error {
+	_, err := d.col.DeleteMany(ctx, bson.M{"userId": userID, "tripId": tripID})
+	return err
 }

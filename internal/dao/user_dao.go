@@ -53,6 +53,11 @@ func (d UserDAO) FindByID(ctx context.Context, id string) (models.User, error) {
 	return d.findOne(ctx, "_id", id)
 }
 
+func (d UserDAO) AssignPricingPlan(ctx context.Context, userID, planID, planSlug string) error {
+	_, err := d.col.UpdateOne(ctx, bson.M{"_id": userID}, bson.M{"$set": bson.M{"pricingPlanId": planID, "pricingPlan": planSlug, "updatedAt": time.Now().UTC()}})
+	return err
+}
+
 func (d UserDAO) UpsertGoogleUser(ctx context.Context, u models.User) (models.User, error) {
 	now := time.Now().UTC()
 	u.UpdatedAt = now
@@ -69,8 +74,10 @@ func (d UserDAO) UpsertGoogleUser(ctx context.Context, u models.User) (models.Us
 			"updatedAt":    now,
 		},
 		"$setOnInsert": bson.M{
-			"_id":       u.ID,
-			"createdAt": now,
+			"_id":           u.ID,
+			"createdAt":     now,
+			"pricingPlanId": "free",
+			"pricingPlan":   "free",
 		},
 	}
 	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)

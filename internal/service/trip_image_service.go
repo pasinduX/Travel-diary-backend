@@ -25,13 +25,15 @@ import (
 )
 
 type TripImageService struct {
-	trips  dao.TripDAO
-	images dao.TripImageDAO
-	s3     *integrations.S3Client
+	trips    dao.TripDAO
+	images   dao.TripImageDAO
+	analyses dao.TripImageAnalysisDAO
+	s3       *integrations.S3Client
+	analysis *ImageAnalysisQueue
 }
 
-func NewTripImageService(trips dao.TripDAO, images dao.TripImageDAO, s3 *integrations.S3Client) *TripImageService {
-	return &TripImageService{trips: trips, images: images, s3: s3}
+func NewTripImageService(trips dao.TripDAO, images dao.TripImageDAO, analyses dao.TripImageAnalysisDAO, s3 *integrations.S3Client, analysis *ImageAnalysisQueue) *TripImageService {
+	return &TripImageService{trips: trips, images: images, analyses: analyses, s3: s3, analysis: analysis}
 }
 
 func (s *TripImageService) UploadMany(ctx context.Context, userID, tripID string, files []*multipart.FileHeader) ([]dto.TripImageResponse, error) {
@@ -60,6 +62,25 @@ func (s *TripImageService) List(ctx context.Context, userID, tripID string) ([]d
 		out = append(out, toTripImageResponse(img))
 	}
 	return out, nil
+}
+
+func (s *TripImageService) DeleteByTripID(ctx context.Context, userID, tripID string) error {
+	if _, err := s.trips.FindByIDAndUserID(ctx, tripID, userID); err != nil {
+		return fiber.ErrNotFound
+	}
+	images, err := s.images.ListByTripID(ctx, userID, tripID)
+	if err != nil {
+		return err
+	}
+	for _, image := range images {
+		if err := s.s3.DeleteObject(ctx, image.S3Key); err != nil {
+			return err
+		}
+	}
+	if err := s.analyses.DeleteByTripID(ctx, userID, tripID); err != nil {
+		return err
+	}
+	return s.images.DeleteByTripID(ctx, userID, tripID)
 }
 
 func (s *TripImageService) uploadOne(ctx context.Context, userID, tripID string, fh *multipart.FileHeader) (dto.TripImageResponse, error) {
@@ -96,20 +117,27 @@ func (s *TripImageService) uploadOne(ctx context.Context, userID, tripID string,
 	}
 
 	record, err := s.images.Create(ctx, models.TripImage{
-		ID:            uuid.NewString(),
-		TripID:        tripID,
-		UserID:        userID,
-		FileName:      fh.Filename,
-		ContentType:   contentType,
-		FileSizeBytes: int64(len(data)),
-		Width:         cfg.Width,
-		Height:        cfg.Height,
-		DimensionName: fmt.Sprintf("%dx%d", cfg.Width, cfg.Height),
-		S3Key:         key,
-		S3URL:         s.s3.PublicURL(key),
+		ID:             uuid.NewString(),
+		TripID:         tripID,
+		UserID:         userID,
+		FileName:       fh.Filename,
+		ContentType:    contentType,
+		FileSizeBytes:  int64(len(data)),
+		Width:          cfg.Width,
+		Height:         cfg.Height,
+		DimensionName:  fmt.Sprintf("%dx%d", cfg.Width, cfg.Height),
+		S3Key:          key,
+		S3URL:          s.s3.PublicURL(key),
+		AnalysisStatus: "UPLOADED",
 	})
 	if err != nil {
 		return dto.TripImageResponse{}, err
+	}
+	if s.analysis != nil {
+		if err := s.analysis.Enqueue(ctx, record); err != nil {
+			return dto.TripImageResponse{}, err
+		}
+		record.AnalysisStatus = "QUEUED"
 	}
 	return toTripImageResponse(record), nil
 }
@@ -120,18 +148,21 @@ func httpDetectContentType(data []byte) string {
 
 func toTripImageResponse(img models.TripImage) dto.TripImageResponse {
 	return dto.TripImageResponse{
-		ID:            img.ID,
-		TripID:        img.TripID,
-		UserID:        img.UserID,
-		FileName:      img.FileName,
-		ContentType:   img.ContentType,
-		FileSizeBytes: img.FileSizeBytes,
-		Width:         img.Width,
-		Height:        img.Height,
-		DimensionName: img.DimensionName,
-		S3Key:         img.S3Key,
-		S3URL:         img.S3URL,
-		CreatedAt:     img.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     img.UpdatedAt.Format(time.RFC3339),
+		ID:              img.ID,
+		TripID:          img.TripID,
+		UserID:          img.UserID,
+		FileName:        img.FileName,
+		ContentType:     img.ContentType,
+		FileSizeBytes:   img.FileSizeBytes,
+		Width:           img.Width,
+		Height:          img.Height,
+		DimensionName:   img.DimensionName,
+		S3Key:           img.S3Key,
+		S3URL:           img.S3URL,
+		AnalysisStatus:  img.AnalysisStatus,
+		AnalysisError:   img.AnalysisError,
+		AnalysisVersion: img.AnalysisVersion,
+		CreatedAt:       img.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       img.UpdatedAt.Format(time.RFC3339),
 	}
 }

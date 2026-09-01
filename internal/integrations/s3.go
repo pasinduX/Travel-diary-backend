@@ -33,3 +33,11 @@ func NewS3Client(ctx context.Context, region, accessKeyID, secretAccessKey, buck
 func (s *S3Client) PublicURL(key string) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.Bucket, s.Region, key)
 }
+
+func (s *S3Client) DeleteObject(ctx context.Context, key string) error {
+	_, err := s.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &s.Bucket,
+		Key:    &key,
+	})
+	return err
+}

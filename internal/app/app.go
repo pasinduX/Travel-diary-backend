@@ -1,11 +1,14 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"travel-diary-backend/internal/config"
+	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/integrations"
 	"travel-diary-backend/internal/middleware"
 	"travel-diary-backend/internal/router"
+	"travel-diary-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 	fibercors "github.com/gofiber/fiber/v2/middleware/cors"
@@ -30,6 +33,12 @@ func New(cfg config.Config) (*fiber.App, error) {
 		return nil, err
 	}
 
+	db := client.Database(cfg.MongoDatabase)
+	if err := dao.NewPricingDAO(db).SeedDefaults(context.Background(), service.DefaultPricingPlans()); err != nil {
+		return nil, fmt.Errorf("seed pricing plans: %w", err)
+	}
+	analysisQueue := service.NewImageAnalysisQueue(cfg, db)
+
 	corsCfg := fibercors.Config{
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
@@ -41,7 +50,7 @@ func New(cfg config.Config) (*fiber.App, error) {
 	app.Use(middleware.RequestLogger())
 	app.Use(middleware.Recover())
 
-	router.Register(app, cfg, client.Database(cfg.MongoDatabase))
+	router.Register(app, cfg, db, analysisQueue)
 
 	return app, nil
 }

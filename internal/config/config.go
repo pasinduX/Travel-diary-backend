@@ -27,6 +27,9 @@ type Config struct {
 	GoogleAuthStateSecret string
 	GoogleRedirectURL     string
 	FrontendRedirectURL   string
+	OpenAIKey             string
+	OpenAIModelImage      string
+	ImageAnalysisWorkers  int
 }
 
 func Load() Config {
@@ -49,6 +52,9 @@ func Load() Config {
 		GoogleAuthStateSecret: getEnv("GOOGLE_AUTH_STATE_SECRET", "state-secret"),
 		GoogleRedirectURL:     getEnv("GOOGLE_REDIRECT_URL", ""),
 		FrontendRedirectURL:   getEnv("FRONTEND_REDIRECT_URL", ""),
+		OpenAIKey:             getEnv("OPENAI_KEY", ""),
+		OpenAIModelImage:      getEnv("OPENAI_MODEL_IMAGE_ANALYSIS", "gpt-4o-mini"),
+		ImageAnalysisWorkers:  getEnvInt("IMAGE_ANALYSIS_WORKERS", 4),
 	}
 }
 
@@ -156,6 +162,18 @@ func getEnv(key, fallback string) string {
 	}
 
 	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	var parsed int
+	if _, err := fmt.Sscanf(value, "%d", &parsed); err != nil || parsed < 1 {
+		return fallback
+	}
+	return parsed
 }
 
 func ValidateDatabaseURL(raw string) error {

@@ -23,9 +23,11 @@ type RefreshRequest struct {
 }
 
 type UserResponse struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Name     string `json:"name,omitempty"`
-	Provider string `json:"provider"`
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	Email         string `json:"email"`
+	Name          string `json:"name,omitempty"`
+	Provider      string `json:"provider"`
+	PricingPlanID string `json:"pricingPlanId"`
+	PricingPlan   string `json:"pricingPlan"`
 }

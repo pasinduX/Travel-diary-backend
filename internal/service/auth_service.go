@@ -57,12 +57,14 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (dt
 	}
 
 	user := models.User{
-		ID:           uuid.NewString(),
-		Username:     req.Username,
-		Email:        req.Email,
-		PasswordHash: string(hash),
-		AuthProvider: "local",
-		Name:         req.Name,
+		ID:            uuid.NewString(),
+		Username:      req.Username,
+		Email:         req.Email,
+		PasswordHash:  string(hash),
+		AuthProvider:  "local",
+		Name:          req.Name,
+		PricingPlanID: "free",
+		PricingPlan:   "free",
 	}
 	user, err = s.users.Create(ctx, user)
 	if err != nil {
@@ -90,6 +92,7 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (dto.Auth
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		return dto.AuthResponse{}, errors.New("invalid username or password")
 	}
+	user = s.ensureStarterPlan(ctx, user)
 
 	token, refreshToken, err := s.issueTokens(ctx, user)
 	if err != nil {
@@ -133,6 +136,7 @@ func (s *AuthService) GoogleCallback(ctx context.Context, code, state string) (d
 	if err != nil {
 		return dto.AuthResponse{}, err
 	}
+	user = s.ensureStarterPlan(ctx, user)
 
 	appToken, refreshToken, err := s.issueTokens(ctx, user)
 	if err != nil {
@@ -147,7 +151,6 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (dto.Aut
 	if err != nil {
 		return dto.AuthResponse{}, errors.New("invalid refresh token")
 	}
-
 	if tokenType, _ := claims["type"].(string); tokenType != "refresh" {
 		return dto.AuthResponse{}, errors.New("invalid refresh token")
 	}
@@ -170,6 +173,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (dto.Aut
 	if err != nil {
 		return dto.AuthResponse{}, errors.New("invalid refresh token")
 	}
+	user = s.ensureStarterPlan(ctx, user)
 
 	if err := s.sessions.RevokeByTokenID(ctx, tokenID); err != nil {
 		return dto.AuthResponse{}, err
@@ -206,10 +210,23 @@ func (s *AuthService) issueTokens(ctx context.Context, user models.User) (string
 
 func toUserResponse(u models.User) dto.UserResponse {
 	return dto.UserResponse{
-		ID:       u.ID,
-		Username: u.Username,
-		Email:    u.Email,
-		Name:     u.Name,
-		Provider: u.AuthProvider,
+		ID:            u.ID,
+		Username:      u.Username,
+		Email:         u.Email,
+		Name:          u.Name,
+		Provider:      u.AuthProvider,
+		PricingPlanID: u.PricingPlanID,
+		PricingPlan:   u.PricingPlan,
 	}
+}
+
+func (s *AuthService) ensureStarterPlan(ctx context.Context, user models.User) models.User {
+	if user.PricingPlanID != "" && user.PricingPlan != "" {
+		return user
+	}
+	if err := s.users.AssignPricingPlan(ctx, user.ID, "free", "free"); err == nil {
+		user.PricingPlanID = "free"
+		user.PricingPlan = "free"
+	}
+	return user
 }

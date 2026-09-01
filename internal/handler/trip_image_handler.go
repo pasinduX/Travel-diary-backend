@@ -13,9 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func TripImageUploadHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func TripImageUploadHandler(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		svc, err := newTripImageService(cfg, db)
+		svc, err := newTripImageService(cfg, db, analysis)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -44,9 +44,9 @@ func TripImageUploadHandler(cfg config.Config, db *mongo.Database) fiber.Handler
 	}
 }
 
-func TripImageListHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func TripImageListHandler(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		svc, err := newTripImageService(cfg, db)
+		svc, err := newTripImageService(cfg, db, analysis)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -63,10 +63,10 @@ func TripImageListHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 	}
 }
 
-func newTripImageService(cfg config.Config, db *mongo.Database) (*service.TripImageService, error) {
+func newTripImageService(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) (*service.TripImageService, error) {
 	s3Client, err := integrations.NewS3Client(context.Background(), cfg.AWSRegion, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey, cfg.AWSBucket)
 	if err != nil {
 		return nil, err
 	}
-	return service.NewTripImageService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), s3Client), nil
+	return service.NewTripImageService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), s3Client, analysis), nil
 }
