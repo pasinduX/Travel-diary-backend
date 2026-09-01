@@ -30,3 +30,25 @@ func (d TripImageAnalysisDAO) DeleteByTripID(ctx context.Context, userID, tripID
 	_, err := d.col.DeleteMany(ctx, bson.M{"userId": userID, "tripId": tripID})
 	return err
 }
+
+func (d TripImageAnalysisDAO) DeleteByImageID(ctx context.Context, userID, imageID string) error {
+	_, err := d.col.DeleteOne(ctx, bson.M{"userId": userID, "imageId": imageID})
+	return err
+}
+
+func (d TripImageAnalysisDAO) ListByTripID(ctx context.Context, userID, tripID string) ([]models.TripImageAnalysis, error) {
+	cur, err := d.col.Find(ctx, bson.M{"userId": userID, "tripId": tripID}, options.Find().SetSort(bson.D{{Key: "story.importance", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var analyses []models.TripImageAnalysis
+	for cur.Next(ctx) {
+		var analysis models.TripImageAnalysis
+		if err := cur.Decode(&analysis); err != nil {
+			return nil, err
+		}
+		analyses = append(analyses, analysis)
+	}
+	return analyses, cur.Err()
+}

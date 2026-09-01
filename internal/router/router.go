@@ -34,5 +34,8 @@ func Register(app *fiber.App, cfg config.Config, db *mongo.Database, analysis *s
 	trips.Delete("/:id", handler.TripDeleteHandler(cfg, db))
 	trips.Post("/:id/images", handler.TripImageUploadHandler(cfg, db, analysis))
 	trips.Get("/:id/images", handler.TripImageListHandler(cfg, db, analysis))
+	trips.Delete("/:id/images/:imageId", handler.TripImageDeleteHandler(cfg, db, analysis))
 	trips.Get("/:id/analysis-status", handler.TripAnalysisStatusHandler(cfg, db))
+	trips.Post("/:id/album/generate", handler.GenerateAlbumHandler(cfg, db))
+	trips.Get("/:id/album", handler.AlbumGetHandler(cfg, db))
 }

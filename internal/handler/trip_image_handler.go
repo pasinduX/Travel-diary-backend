@@ -63,6 +63,23 @@ func TripImageListHandler(cfg config.Config, db *mongo.Database, analysis *servi
 	}
 }
 
+func TripImageDeleteHandler(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		svc, err := newTripImageService(cfg, db, analysis)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		userID, err := userIDFromAccessToken(cfg, c)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		}
+		if err := svc.Delete(c.Context(), userID, c.Params("id"), c.Params("imageId")); err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+}
+
 func newTripImageService(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) (*service.TripImageService, error) {
 	s3Client, err := integrations.NewS3Client(context.Background(), cfg.AWSRegion, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey, cfg.AWSBucket)
 	if err != nil {

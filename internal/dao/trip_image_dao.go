@@ -99,3 +99,8 @@ func (d TripImageDAO) DeleteByTripID(ctx context.Context, userID, tripID string)
 	_, err := d.col.DeleteMany(ctx, bson.M{"userId": userID, "tripId": tripID})
 	return err
 }
+
+func (d TripImageDAO) DeleteByID(ctx context.Context, userID, tripID, imageID string) error {
+	_, err := d.col.DeleteOne(ctx, bson.M{"_id": imageID, "userId": userID, "tripId": tripID})
+	return err
+}

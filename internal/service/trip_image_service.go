@@ -83,6 +83,23 @@ func (s *TripImageService) DeleteByTripID(ctx context.Context, userID, tripID st
 	return s.images.DeleteByTripID(ctx, userID, tripID)
 }
 
+func (s *TripImageService) Delete(ctx context.Context, userID, tripID, imageID string) error {
+	if _, err := s.trips.FindByIDAndUserID(ctx, tripID, userID); err != nil {
+		return fiber.ErrNotFound
+	}
+	image, err := s.images.FindByID(ctx, userID, imageID)
+	if err != nil || image.TripID != tripID {
+		return fiber.ErrNotFound
+	}
+	if err := s.s3.DeleteObject(ctx, image.S3Key); err != nil {
+		return err
+	}
+	if err := s.analyses.DeleteByImageID(ctx, userID, imageID); err != nil {
+		return err
+	}
+	return s.images.DeleteByID(ctx, userID, tripID, imageID)
+}
+
 func (s *TripImageService) uploadOne(ctx context.Context, userID, tripID string, fh *multipart.FileHeader) (dto.TripImageResponse, error) {
 	file, err := fh.Open()
 	if err != nil {

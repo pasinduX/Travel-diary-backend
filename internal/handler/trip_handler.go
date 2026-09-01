@@ -97,6 +97,7 @@ func TripDeleteHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 		if err := svc.Delete(c.Context(), userID, c.Params("id")); err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 		}
+		_ = dao.NewAlbumPlanDAO(db).DeleteByTripID(c.Context(), userID, c.Params("id"))
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 }
