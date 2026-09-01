@@ -21,6 +21,9 @@ func New(cfg config.Config) (*fiber.App, error) {
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
+	if err := config.ValidateDatabaseURL(cfg.DatabaseURL); err != nil {
+		return nil, err
+	}
 
 	client, err := integrations.NewMongoClient(cfg.DatabaseURL)
 	if err != nil {

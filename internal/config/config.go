@@ -2,6 +2,8 @@ package config
 
 import (
 	"bufio"
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +35,7 @@ func Load() Config {
 		AppName:               getEnv("APP_NAME", "travel-diary-backend"),
 		Environment:           getEnv("APP_ENV", "development"),
 		Port:                  getEnv("PORT", "8001"),
-		DatabaseURL:           getEnv("DATABASE_URL", ""),
+		DatabaseURL:           normalizeDatabaseURL(getEnv("DATABASE_URL", "")),
 		MongoDatabase:         getEnv("MONGO_DATABASE", "travel_diary"),
 		AWSRegion:             getEnv("AWS_REGION", ""),
 		AWSAccessKeyID:        getEnv("AWS_ACCESS_KEY_ID", ""),
@@ -47,6 +49,14 @@ func Load() Config {
 		GoogleRedirectURL:     getEnv("GOOGLE_REDIRECT_URL", ""),
 		FrontendRedirectURL:   getEnv("FRONTEND_REDIRECT_URL", ""),
 	}
+}
+
+func normalizeDatabaseURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	raw = strings.Trim(raw, `"'`)
+	raw = strings.TrimPrefix(raw, "export DATABASE_URL=")
+	raw = strings.TrimPrefix(raw, "DATABASE_URL=")
+	return raw
 }
 
 func loadDotEnv(path string) {
@@ -87,4 +97,18 @@ func getEnv(key, fallback string) string {
 	}
 
 	return fallback
+}
+
+func ValidateDatabaseURL(raw string) error {
+	if raw == "" {
+		return fmt.Errorf("DATABASE_URL is required")
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if parsed.Scheme != "mongodb" && parsed.Scheme != "mongodb+srv" {
+		return fmt.Errorf("DATABASE_URL must start with mongodb:// or mongodb+srv://")
+	}
+	return nil
 }

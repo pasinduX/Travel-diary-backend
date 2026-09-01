@@ -14,12 +14,12 @@ import (
 )
 
 func TripImageUploadHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
-	svc, err := newTripImageService(cfg, db)
-	if err != nil {
-		panic(err)
-	}
-
 	return func(c *fiber.Ctx) error {
+		svc, err := newTripImageService(cfg, db)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
 		userID, err := userIDFromAccessToken(cfg, c)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
@@ -45,12 +45,12 @@ func TripImageUploadHandler(cfg config.Config, db *mongo.Database) fiber.Handler
 }
 
 func TripImageListHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
-	svc, err := newTripImageService(cfg, db)
-	if err != nil {
-		panic(err)
-	}
-
 	return func(c *fiber.Ctx) error {
+		svc, err := newTripImageService(cfg, db)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+
 		userID, err := userIDFromAccessToken(cfg, c)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
