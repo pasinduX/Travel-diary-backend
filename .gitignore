@@ -3,3 +3,6 @@ tmp/
 .env
 .DS_Store
 coverage.out
+
+# compiled binary from `go build .`
+/travel-diary-backend

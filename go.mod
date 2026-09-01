@@ -4,8 +4,6 @@ go 1.23.0
 
 require github.com/gofiber/fiber/v2 v2.52.6
 
-require github.com/gofiber/adaptor/v2 v2.1.0
-
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.5
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.58
@@ -35,7 +33,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.13 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
-	github.com/gofiber/utils v0.1.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

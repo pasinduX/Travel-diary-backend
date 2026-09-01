@@ -85,6 +85,12 @@ func loadDotEnv(path string) {
 		if key == "" || value == "" {
 			continue
 		}
+		// A real environment variable always wins over the .env file, so a
+		// deployment that injects config through the environment (Railway,
+		// Render, ...) is never shadowed by a stray committed .env.
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
 		_ = os.Setenv(key, value)
 	}
 }
@@ -102,18 +108,41 @@ func sanitizeEnvValue(value string) string {
 	return value
 }
 
+// sanitizeOrigins turns a loosely formatted CORS origins env value into a
+// clean comma-separated list. It tolerates commas, newlines, spaces, tabs and
+// surrounding quotes/brackets as separators — dashboards (Vercel especially)
+// often store the value newline-separated, which makes Fiber's CORS
+// middleware panic with "Invalid origin format".
 func sanitizeOrigins(raw string) string {
-	parts := strings.Split(raw, ",")
-	clean := make([]string, 0, len(parts))
-	for _, part := range parts {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' '
+	})
+
+	clean := make([]string, 0, len(fields))
+	seen := make(map[string]bool)
+
+	for _, part := range fields {
 		part = sanitizeEnvValue(part)
 		if part == "" {
 			continue
 		}
-		if u, err := url.Parse(part); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" {
-			clean = append(clean, part)
+
+		u, err := url.Parse(part)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			continue
+		}
+		// An origin is scheme://host[:port] only — no path, query or fragment.
+		if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			continue
+		}
+
+		origin := u.Scheme + "://" + u.Host
+		if !seen[origin] {
+			seen[origin] = true
+			clean = append(clean, origin)
 		}
 	}
+
 	return strings.Join(clean, ",")
 }
 
