@@ -64,6 +64,32 @@ func (s *TripImageService) List(ctx context.Context, userID, tripID string) ([]d
 	return out, nil
 }
 
+// RetryFailedAnalysis requeues only images that previously failed analysis.
+func (s *TripImageService) RetryFailedAnalysis(ctx context.Context, userID, tripID string) (int, error) {
+	if _, err := s.trips.FindByIDAndUserID(ctx, tripID, userID); err != nil {
+		return 0, fiber.ErrNotFound
+	}
+	images, err := s.images.ListByTripID(ctx, userID, tripID)
+	if err != nil {
+		return 0, err
+	}
+	if s.analysis == nil {
+		return 0, fmt.Errorf("image analysis is unavailable")
+	}
+
+	retried := 0
+	for _, image := range images {
+		if image.AnalysisStatus != "FAILED" {
+			continue
+		}
+		if err := s.analysis.Enqueue(ctx, image); err != nil {
+			return retried, err
+		}
+		retried++
+	}
+	return retried, nil
+}
+
 func (s *TripImageService) DeleteByTripID(ctx context.Context, userID, tripID string) error {
 	if _, err := s.trips.FindByIDAndUserID(ctx, tripID, userID); err != nil {
 		return fiber.ErrNotFound

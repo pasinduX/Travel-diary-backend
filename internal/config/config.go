@@ -21,6 +21,10 @@ type Config struct {
 	AWSSecretAccessKey    string
 	AWSBucket             string
 	JWTSecret             string
+	Auth0Domain           string
+	Auth0Audience         string
+	Auth0Issuer           string
+	Auth0JWKSURL          string
 	CORSAllowedOrigins    string
 	GoogleClientID        string
 	GoogleClientSecret    string
@@ -46,6 +50,10 @@ func Load() Config {
 		AWSSecretAccessKey:    getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		AWSBucket:             getEnv("AWS_S3_BUCKET", ""),
 		JWTSecret:             getEnv("JWT_SECRET", "change-me"),
+		Auth0Domain:           getEnv("AUTH0_DOMAIN", ""),
+		Auth0Audience:         getEnv("AUTH0_AUDIENCE", ""),
+		Auth0Issuer:           getEnv("AUTH0_ISSUER", ""),
+		Auth0JWKSURL:          getEnv("AUTH0_JWKS_URL", ""),
 		CORSAllowedOrigins:    sanitizeOrigins(getEnv("CORS_ALLOWED_ORIGINS", "")),
 		GoogleClientID:        getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:    getEnv("GOOGLE_CLIENT_SECRET", ""),

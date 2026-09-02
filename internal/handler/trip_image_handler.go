@@ -7,6 +7,7 @@ import (
 	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/dto"
 	"travel-diary-backend/internal/integrations"
+	"travel-diary-backend/internal/middleware"
 	"travel-diary-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,9 +21,9 @@ func TripImageUploadHandler(cfg config.Config, db *mongo.Database, analysis *ser
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		tripID := c.Params("id")
 
@@ -51,9 +52,9 @@ func TripImageListHandler(cfg config.Config, db *mongo.Database, analysis *servi
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		resp, err := svc.List(c.Context(), userID, c.Params("id"))
 		if err != nil {
@@ -63,15 +64,33 @@ func TripImageListHandler(cfg config.Config, db *mongo.Database, analysis *servi
 	}
 }
 
+func TripImageRetryAnalysisHandler(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		svc, err := newTripImageService(cfg, db, analysis)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+		}
+		retried, err := svc.RetryFailedAnalysis(c.Context(), userID, c.Params("id"))
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"retried": retried})
+	}
+}
+
 func TripImageDeleteHandler(cfg config.Config, db *mongo.Database, analysis *service.ImageAnalysisQueue) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		svc, err := newTripImageService(cfg, db, analysis)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		if err := svc.Delete(c.Context(), userID, c.Params("id"), c.Params("imageId")); err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
 	email TEXT NOT NULL UNIQUE,
 	password_hash TEXT NOT NULL DEFAULT '',
 	google_id TEXT UNIQUE,
+	auth0_id TEXT UNIQUE,
 	auth_provider TEXT NOT NULL,
 	name TEXT NOT NULL DEFAULT '',
 	picture_url TEXT NOT NULL DEFAULT '',

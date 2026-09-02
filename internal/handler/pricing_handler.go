@@ -5,6 +5,7 @@ import (
 	"travel-diary-backend/internal/config"
 	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/dto"
+	"travel-diary-backend/internal/middleware"
 	"travel-diary-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,12 +36,12 @@ func PricingGetHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 	}
 }
 
-func CurrentPlanHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func CurrentPlanHandler(db *mongo.Database) fiber.Handler {
 	svc := service.NewPricingService(dao.NewPricingDAO(db), dao.NewUserDAO(db))
 	return func(c *fiber.Ctx) error {
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		plan, err := svc.GetForUser(c.Context(), userID)
 		if err != nil {
@@ -50,12 +51,12 @@ func CurrentPlanHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 	}
 }
 
-func ChangePlanHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func ChangePlanHandler(db *mongo.Database) fiber.Handler {
 	svc := service.NewPricingService(dao.NewPricingDAO(db), dao.NewUserDAO(db))
 	return func(c *fiber.Ctx) error {
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		var req dto.PricingPlanRequest
 		if err := c.BodyParser(&req); err != nil {

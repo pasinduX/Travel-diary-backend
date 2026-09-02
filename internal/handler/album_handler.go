@@ -1,20 +1,20 @@
 package handler
 
 import (
-	"travel-diary-backend/internal/config"
 	"travel-diary-backend/internal/dao"
+	"travel-diary-backend/internal/middleware"
 	"travel-diary-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GenerateAlbumHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func GenerateAlbumHandler(db *mongo.Database) fiber.Handler {
 	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db))
 	return func(c *fiber.Ctx) error {
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		plan, err := svc.Generate(c.Context(), userID, c.Params("id"))
 		if err != nil {
@@ -24,12 +24,12 @@ func GenerateAlbumHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
 	}
 }
 
-func AlbumGetHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+func AlbumGetHandler(db *mongo.Database) fiber.Handler {
 	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db))
 	return func(c *fiber.Ctx) error {
-		userID, err := userIDFromAccessToken(cfg, c)
-		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 		}
 		plan, err := svc.Get(c.Context(), userID, c.Params("id"))
 		if err != nil {
