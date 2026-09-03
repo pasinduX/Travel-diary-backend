@@ -1,11 +1,34 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/mongo"
 	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/middleware"
 )
+
+func TripImageAnalysisHandler(db *mongo.Database) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID, ok := middleware.Auth0UserID(c)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+		}
+
+		analysis, err := dao.NewTripImageAnalysisDAO(db).FindByImageID(
+			c.Context(), userID, c.Params("id"), c.Params("imageId"),
+		)
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "image analysis not found"})
+		}
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not load image analysis"})
+		}
+
+		return c.JSON(analysis)
+	}
+}
 
 func TripAnalysisStatusHandler(db *mongo.Database) fiber.Handler {
 	return func(c *fiber.Ctx) error {

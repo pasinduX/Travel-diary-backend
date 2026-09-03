@@ -29,6 +29,7 @@ func (d TripImageAnalysisDAO) Upsert(ctx context.Context, a models.TripImageAnal
 			"takenAt":         a.TakenAt,
 			"latitude":        a.Latitude,
 			"longitude":       a.Longitude,
+			"suitePlace":      a.SuitePlace,
 			"orientation":     a.Orientation,
 			"aspectRatio":     a.AspectRatio,
 			"caption":         a.Caption,
@@ -60,6 +61,16 @@ func (d TripImageAnalysisDAO) DeleteByTripID(ctx context.Context, userID, tripID
 func (d TripImageAnalysisDAO) DeleteByImageID(ctx context.Context, userID, imageID string) error {
 	_, err := d.col.DeleteOne(ctx, bson.M{"userId": userID, "imageId": imageID})
 	return err
+}
+
+func (d TripImageAnalysisDAO) FindByImageID(ctx context.Context, userID, tripID, imageID string) (models.TripImageAnalysis, error) {
+	var analysis models.TripImageAnalysis
+	err := d.col.FindOne(ctx, bson.M{
+		"userId":  userID,
+		"tripId":  tripID,
+		"imageId": imageID,
+	}).Decode(&analysis)
+	return analysis, err
 }
 
 func (d TripImageAnalysisDAO) ListByTripID(ctx context.Context, userID, tripID string) ([]models.TripImageAnalysis, error) {

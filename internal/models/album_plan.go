@@ -16,6 +16,14 @@ type AlbumPlan struct {
 	Subtitle string         `bson:"subtitle" json:"subtitle"`
 	Tone     string         `bson:"tone" json:"tone"`
 	Chapters []AlbumChapter `bson:"chapters" json:"chapters"`
+	Quotes   []AlbumQuote   `bson:"quotes" json:"quotes"`
+}
+
+type AlbumQuote struct {
+	From  string `bson:"from" json:"from"`
+	To    string `bson:"to" json:"to"`
+	Text  string `bson:"text" json:"text"`
+	Order int    `bson:"order" json:"order"`
 }
 
 type AlbumChapter struct {

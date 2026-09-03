@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"travel-diary-backend/internal/config"
 	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/middleware"
 	"travel-diary-backend/internal/service"
@@ -9,8 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GenerateAlbumHandler(db *mongo.Database) fiber.Handler {
-	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db))
+func GenerateAlbumHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db), cfg)
 	return func(c *fiber.Ctx) error {
 		userID, ok := middleware.Auth0UserID(c)
 		if !ok {
@@ -24,8 +25,8 @@ func GenerateAlbumHandler(db *mongo.Database) fiber.Handler {
 	}
 }
 
-func AlbumGetHandler(db *mongo.Database) fiber.Handler {
-	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db))
+func AlbumGetHandler(cfg config.Config, db *mongo.Database) fiber.Handler {
+	svc := service.NewAlbumService(dao.NewTripDAO(db), dao.NewTripImageDAO(db), dao.NewTripImageAnalysisDAO(db), dao.NewAlbumPlanDAO(db), cfg)
 	return func(c *fiber.Ctx) error {
 		userID, ok := middleware.Auth0UserID(c)
 		if !ok {

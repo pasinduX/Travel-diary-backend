@@ -10,6 +10,7 @@ type TripImageAnalysis struct {
 	TakenAt         *time.Time          `bson:"takenAt,omitempty" json:"takenAt,omitempty"`
 	Latitude        *float64            `bson:"latitude,omitempty" json:"latitude,omitempty"`
 	Longitude       *float64            `bson:"longitude,omitempty" json:"longitude,omitempty"`
+	SuitePlace      string              `bson:"suitePlace" json:"suitePlace"`
 	Orientation     string              `bson:"orientation" json:"orientation"`
 	AspectRatio     float64             `bson:"aspectRatio" json:"aspectRatio"`
 	Caption         string              `bson:"caption" json:"caption"`
@@ -26,6 +27,20 @@ type TripImageAnalysis struct {
 	CreatedAt       time.Time           `bson:"createdAt" json:"createdAt"`
 	UpdatedAt       time.Time           `bson:"updatedAt" json:"updatedAt"`
 }
+
+const (
+	SuitePlaceCover      = "COVER"
+	SuitePlacePrologue   = "PROLOGUE"
+	SuitePlaceHeader     = "HEADER"
+	SuitePlaceHero       = "HERO"
+	SuitePlaceStory      = "STORY"
+	SuitePlaceGrid       = "GRID"
+	SuitePlaceQuote      = "QUOTE"
+	SuitePlaceTransition = "TRANSITION"
+	SuitePlaceHighlights = "HIGHLIGHTS"
+	SuitePlaceEpilogue   = "EPILOGUE"
+	SuitePlaceCredits    = "CREDITS"
+)
 
 type SceneAnalysis struct {
 	Primary     string   `bson:"primary" json:"primary"`

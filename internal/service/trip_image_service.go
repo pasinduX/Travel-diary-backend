@@ -12,9 +12,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/rwcarlsen/goexif/exif"
 	"travel-diary-backend/internal/dao"
 	"travel-diary-backend/internal/dto"
 	"travel-diary-backend/internal/integrations"
@@ -142,6 +145,7 @@ func (s *TripImageService) uploadOne(ctx context.Context, userID, tripID string,
 	if err != nil {
 		return dto.TripImageResponse{}, err
 	}
+	exifData := extractEXIF(data)
 
 	key := fmt.Sprintf("trips/%s/%s%s", tripID, uuid.NewString(), filepath.Ext(fh.Filename))
 	contentType := fh.Header.Get("Content-Type")
@@ -169,6 +173,7 @@ func (s *TripImageService) uploadOne(ctx context.Context, userID, tripID string,
 		Width:          cfg.Width,
 		Height:         cfg.Height,
 		DimensionName:  fmt.Sprintf("%dx%d", cfg.Width, cfg.Height),
+		EXIF:           exifData,
 		S3Key:          key,
 		S3URL:          s.s3.PublicURL(key),
 		AnalysisStatus: "UPLOADED",
@@ -200,6 +205,7 @@ func toTripImageResponse(img models.TripImage) dto.TripImageResponse {
 		Width:           img.Width,
 		Height:          img.Height,
 		DimensionName:   img.DimensionName,
+		EXIF:            img.EXIF,
 		S3Key:           img.S3Key,
 		S3URL:           img.S3URL,
 		AnalysisStatus:  img.AnalysisStatus,
@@ -208,4 +214,63 @@ func toTripImageResponse(img models.TripImage) dto.TripImageResponse {
 		CreatedAt:       img.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       img.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+func extractEXIF(data []byte) *models.ImageEXIF {
+	metadata, err := exif.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil
+	}
+
+	result := &models.ImageEXIF{
+		CapturedAt:   normalizeEXIFDate(exifString(metadata, exif.DateTimeOriginal)),
+		CameraMake:   exifString(metadata, exif.Make),
+		CameraModel:  exifString(metadata, exif.Model),
+		LensModel:    exifString(metadata, exif.LensModel),
+		ShutterSpeed: exifString(metadata, exif.ExposureTime),
+	}
+	result.ISO = exifInt(metadata, exif.ISOSpeedRatings)
+	result.Aperture = exifFloat(metadata, exif.FNumber)
+	result.FocalLength = exifFloat(metadata, exif.FocalLength)
+
+	if *result == (models.ImageEXIF{}) {
+		return nil
+	}
+	return result
+}
+
+func normalizeEXIFDate(value string) string {
+	parsed, err := time.Parse("2006:01:02 15:04:05", value)
+	if err != nil {
+		return value
+	}
+	return parsed.Format("2006-01-02T15:04:05")
+}
+
+func exifString(metadata *exif.Exif, tag exif.FieldName) string {
+	value, err := metadata.Get(tag)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value.String())
+}
+
+func exifInt(metadata *exif.Exif, tag exif.FieldName) int {
+	value := exifString(metadata, tag)
+	parsed, _ := strconv.Atoi(value)
+	return parsed
+}
+
+func exifFloat(metadata *exif.Exif, tag exif.FieldName) float64 {
+	value := exifString(metadata, tag)
+	if strings.Contains(value, "/") {
+		parts := strings.SplitN(value, "/", 2)
+		numerator, numErr := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		denominator, denErr := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if numErr == nil && denErr == nil && denominator != 0 {
+			return numerator / denominator
+		}
+	}
+	parsed, _ := strconv.ParseFloat(value, 64)
+	return parsed
 }
